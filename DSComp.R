@@ -1,16 +1,3 @@
-##### data structure
-##### Model mediator
-# M=gamma.0+gamma.1*treat+gamma.2*pretreat+epsilon.m, n by p
-
-##### Model outcome
-# y=beta.0 + beta.1*treat + beta.2*M + beta.3*pretreat+epsilon.y
-
-# Most important variable:
-# observation: treat, pretreat
-# coefficient: gamma.0, gamma.1, gamma.2; beta.0, beta.1, beta.2, beta.3
-# error: epsilon.y
-
-#setwd('Documents/stat research/simulation')
 load(file = 'data/meanModel.RData')
 library(MASS)
 library(stats)
@@ -38,10 +25,24 @@ fdr = function(t, M){
   return(up/down)
 }
 
-response.Id = response(epsilon.M.Id)
+compR.v = c(0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1)
 
-fdr.DS.Id = c()
-power.DS.Id = c()
+
+
+for(i in 1:length(compR.v)){
+compR=compR.v[i]
+print(compR)
+mu.M = rep(0, p)
+row1 = rep(0, p)
+row1[1] = 1
+row1[2:p] = compR
+Sigma.M = toeplitz(row1)
+epsilon.M = mvrnorm(n, mu.M, Sigma.M)
+
+
+response.DS = response(epsilon.M)
+fdr.DS = c()
+power.DS = c()
 ######## DS ############################
 ## split data into two equal parts
 D = c(1:500)
@@ -58,18 +59,18 @@ inter.1 = matrix(rep(1,n/2), ncol = 1) #intercept
 inter.full = matrix(rep(1,n), ncol = 1)
 X1 = pretreat[D1,]
 X2 = pretreat[D2,]
-M1 = response.Id$M[D1,]
-M2 = response.Id$M[D2,]
-Y1 = response.Id$Y[D1,]
-Y2 = response.Id$Y[D2,]
+M1 = response.DS$M[D1,]
+M2 = response.DS$M[D2,]
+Y1 = response.DS$Y[D1,]
+Y2 = response.DS$Y[D2,]
 
 # Phase 1: Lasso on outcome model Y
 X.full1 = cbind(inter.1, t1.m, X1, M1) #full design matrix
 p.fac1 = rep(1, dim(X.full1)[2])
 p.fac1[1:22] = 0
 
-cv.lasso.1 = cv.glmnet(X.full1, Y1, penalty.factor = p.fac1)
-coef.lasso1.min = coef(cv.lasso.1$glmnet.fit, s = cv.lasso.1$lambda.min, exact = F)
+cv.lasso.1 = cv.glmnet(X.full1, Y1, penalty.factor = p.fac1, nfolds = 10)
+coef.lasso1.min = coef(cv.lasso.1$glmnet.fit, s = cv.lasso.1$lambda.1se, exact = F)
 
 ind.lasso.raw = which(coef.lasso1.min!=0)
 # estimation of beta1 we need
@@ -81,7 +82,7 @@ p1.hat = length(ind.lasso)
 
 # Phase2: Do regression on D2 and ind.lasso for gamma and beta
 # Mediator model
-M.S1 = response.Id$M[, ind.lasso]
+M.S1 = response.DS$M[, ind.lasso]
 X.M = cbind(inter.full, pretreat, treat)
 gamma.e = solve(t(X.M) %*% X.M) %*% t(X.M) %*% M.S1
 
@@ -123,10 +124,12 @@ S0.final = setdiff(1:p, S1.final)
 
 # evaluate
 fdr.eval = length(intersect(S0,S1.final))/max(1,length(S1.final)) # 0.0421
-power.eval = length(intersect(S0, S0.mds))/length(S0.mds)  # 0.85
+power.eval = length(intersect(S0, S0.final))/length(S0.final)  # 0.85
 
-fdr.DS.Id = c(fdr.DS.Id, fdr.eval)
-power.DS.Id = c(power.DS.Id, power.eval)
+fdr.DS = c(fdr.DS, fdr.eval)
+power.DS = c(power.DS, power.eval)
+
+write.csv(fdr.DS,file=paste('results/fdr/covariance/compound/DScomp',compR*10,'.csv',sep=''),row.names=F)
+write.csv(power.DS, file=paste('results/power/covariance/compound/DScomp',compR*10,'.csv',sep=''), row.names=F)
 }
-
-save(fdr.DS.Id, power.DS.Id, file = 'results/DS_Id.RData')
+}
