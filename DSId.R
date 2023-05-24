@@ -92,7 +92,7 @@ gamma.e1 = gamma.e[dim(gamma.e)[1],]
 M2.S1 = M2[, ind.lasso]
 X.Y2 = cbind(inter.1, t2.m, X2, M2.S1)
 beta2.e = solve(t(X.Y2) %*% X.Y2) %*% t(X.Y2) %*% Y2
-# estimation of beta1 we need
+# estimation of beta2 we need
 beta2.e1 = beta2.e[(23:length(beta2.e))]
 
 # generate mirror statistics
