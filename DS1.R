@@ -11,22 +11,29 @@
 # error: epsilon.y
 
 #setwd('Documents/stat research/simulation')
-load(file = 'data/meanModel.RData')
 library(MASS)
 library(stats)
 library(glmnet)
 
-## generate different covariance matrix for Mediator error
-mu.M = rep(0, p)
-Sigma.M.Id = diag(p)
-epsilon.M.Id = mvrnorm(n, mu.M, Sigma.M.Id)
+#set arguments
+require("getopt", quietly=TRUE)
 
-response = function(epsilon.M){
-  M = intercept.M %*% t(gamma.0) + treat %*% t(gamma.1) + pretreat %*% t(gamma.2) + epsilon.M
-  Y = intercept.Y * beta.0 + treat * beta.1 + M %*% beta.2 + pretreat %*% beta.3 + epsilon.Y
-  out = list(M=M, Y=Y)
-  return(out)
-}
+spec = matrix(c(
+    "Filename", "f", 1, "character",
+    "Fdr", "q", 1, "numeric",
+    "Savename", "s", 1, "character",
+    "Repeat", "r", 1, "integer"
+), byrow=TRUE, ncol=4)
+
+opt = getopt(spec);
+cat("File loaded:", paste('data/', opt$Filename, sep=''), "\n")
+cat("Fdr level:", opt$Fdr, "\n")
+
+#load data
+load(file = paste('data/', opt$Filename, sep=''))
+
+
+## important functions
 
 f = function(u,v){
   return(u + v)
@@ -38,15 +45,13 @@ fdr = function(t, M){
   return(up/down)
 }
 
-response.Id = response(epsilon.M.Id)
-
 fdr.DS.Id = c()
 power.DS.Id = c()
 ######## DS ############################
 ## split data into two equal parts
-D = c(1:500)
+D = c(1:n)
 
-for(reps in 1:50){
+for(reps in 1:opt$Repeat){
 D1 = sample(D, size = n/2)
 D2 = setdiff(D, D1)
 
@@ -58,10 +63,10 @@ inter.1 = matrix(rep(1,n/2), ncol = 1) #intercept
 inter.full = matrix(rep(1,n), ncol = 1)
 X1 = pretreat[D1,]
 X2 = pretreat[D2,]
-M1 = response.Id$M[D1,]
-M2 = response.Id$M[D2,]
-Y1 = response.Id$Y[D1,]
-Y2 = response.Id$Y[D2,]
+M1 = M[D1,]
+M2 = M[D2,]
+Y1 = Y[D1,]
+Y2 = Y[D2,]
 
 # Phase 1: Lasso on outcome model Y
 X.full1 = cbind(inter.1, t1.m, X1, M1) #full design matrix
@@ -81,7 +86,7 @@ p1.hat = length(ind.lasso)
 
 # Phase2: Do regression on D2 and ind.lasso for gamma and beta
 # Mediator model
-M.S1 = response.Id$M[, ind.lasso]
+M.S1 = M[, ind.lasso]
 X.M = cbind(inter.full, pretreat, treat)
 gamma.e = solve(t(X.M) %*% X.M) %*% t(X.M) %*% M.S1
 
@@ -115,7 +120,7 @@ fdr.M = c()
 for(i in Mirror.abs){
   fdr.M = c(fdr.M, fdr(i, Mirror))
 }
-cutoffs = Mirror.abs[fdr.M<=0.05]
+cutoffs = Mirror.abs[fdr.M<=opt$Fdr]
 cutoff = min(cutoffs)
 
 S1.final = ind.lasso[which(Mirror > cutoff)]#final set of selected values.
@@ -123,10 +128,11 @@ S0.final = setdiff(1:p, S1.final)
 
 # evaluate
 fdr.eval = length(intersect(S0,S1.final))/max(1,length(S1.final)) # 0.0421
-power.eval = length(intersect(S0, S0.mds))/length(S0.mds)  # 0.85
+power.eval = length(intersect(S0, S0.final))/length(S0.final)  # 0.85
 
 fdr.DS.Id = c(fdr.DS.Id, fdr.eval)
 power.DS.Id = c(power.DS.Id, power.eval)
 }
 
-save(fdr.DS.Id, power.DS.Id, file = 'results/DS_Id.RData')
+save(fdr.DS.Id, power.DS.Id, file = paste('results/', opt$Savename, sep=''))
+cat("Save to:", paste('results/', opt$Savename, sep=''), "\n")

@@ -19,24 +19,30 @@
 # epsilon: sample from N(0, I), n by 1
 
 # Only change Sigma.em starting from identity, other parameters remain same.
-
-load(file = 'data/meanModel.RData')
 library(MASS)
 library(stats)
 library(glmnet)
 
-## generate different covariance matrix for Mediator error
-mu.M = rep(0, p)
-Sigma.M.Id = diag(p)
-epsilon.M.Id = mvrnorm(n, mu.M, Sigma.M.Id)
+#set arguments
+require("getopt", quietly=TRUE)
 
-response = function(epsilon.M){
-  M = intercept.M %*% t(gamma.0) + treat %*% t(gamma.1) + pretreat %*% t(gamma.2) + epsilon.M
-  Y = intercept.Y * beta.0 + treat * beta.1 + M %*% beta.2 + pretreat %*% beta.3 + epsilon.Y
-  out = list(M=M, Y=Y)
-  return(out)
-}
+spec = matrix(c(
+    "Filename", "f", 1, "character",
+    "Fdr", "q", 1, "numeric",
+    "Savename", "s", 1, "character",
+    "Repeat", "r", 1, "integer",
+    "MdsTime", "m", 1, "integer"
+), byrow=TRUE, ncol=4)
 
+opt = getopt(spec);
+cat("File loaded:", paste('data/', opt$Filename, sep=''), "\n")
+cat("Fdr level:", opt$Fdr, "\n")
+cat("Mds Time:", opt$MdsTime, "\n")
+
+# load data
+load(file = paste('data/', opt$Filename, sep=''))
+
+# important functions
 fdr = function(t, M){
   up = sum(M<(-1*t))
   down = max(1, sum(M>t))
@@ -59,18 +65,17 @@ find.cutoff = function(q, score){
   return(cutoff)
 }
 
-response.Id = response(epsilon.M.Id)
 
-mds.times = 200
-fdr.MDS.Id.200 = c()
-power.MDS.Id.200 = c()
 
-D = c(1:p)
+fdr.MDS.Id = c()
+power.MDS.Id = c()
 
-for(reps in 1:50){
+D = c(1:n)
+
+for(reps in 1:opt$Repeat){
 med.score = rep(0, p)
 
-for(i in 1:mds.times){
+for(i in 1:opt$MdsTime){
   D1 = sample(D, size = n/2)
   D2 = setdiff(D, D1)
   
@@ -82,10 +87,10 @@ for(i in 1:mds.times){
   inter.full = matrix(rep(1,n), ncol = 1)
   X1 = pretreat[D1,]
   X2 = pretreat[D2,]
-  M1 = response.Id$M[D1,]
-  M2 = response.Id$M[D2,]
-  Y1 = response.Id$Y[D1,]
-  Y2 = response.Id$Y[D2,]
+  M1 = M[D1,]
+  M2 = M[D2,]
+  Y1 = Y[D1,]
+  Y2 = Y[D2,]
   
   # Phase 1: Lasso on outcome model Y
   X.full1 = cbind(inter.1, t1.m, X1, M1) #full design matrix
@@ -105,7 +110,7 @@ for(i in 1:mds.times){
   
   # Phase2: Do regression on D2 and ind.lasso for gamma and beta
   # Mediator model
-  M.S1 = response.Id$M[, ind.lasso]
+  M.S1 = M[, ind.lasso]
   X.M = cbind(inter.full, pretreat, treat)
   gamma.e = solve(t(X.M) %*% X.M) %*% t(X.M) %*% M.S1
   
@@ -137,7 +142,7 @@ for(i in 1:mds.times){
   for(i in Mirror.abs){
     fdr.M = c(fdr.M, fdr(i, Mirror))
   }
-  cutoffs = Mirror.abs[fdr.M<=0.05]
+  cutoffs = Mirror.abs[fdr.M<=opt$Fdr]
   cutoff = min(cutoffs)
   
   S1.ds = ind.lasso[which(Mirror > cutoff)]
@@ -148,19 +153,20 @@ for(i in 1:mds.times){
   }
 }
 
-med.score = med.score/mds.times
+med.score = med.score/opt$MdsTime
 
 sort.med.score = sort(med.score)
-cutoff = find.cutoff(0.05, sort.med.score)
-S1.mds = which(med.score>cutoff)
+cutoff = find.cutoff(opt$Fdr, sort.med.score)
+S1.mds = which(med.score>=cutoff)
 S0.mds = setdiff(1:p, S1.mds)
 
-fdr.mds = length(intersect(S0,S1.mds))/length(S1.mds) #0.033
-power.mds = length(intersect(S0, S0.mds))/length(S0.mds) #0.955
+fdr.mds = length(intersect(S0,S1.mds))/max(1,length(S1.mds))
+power.mds = length(intersect(S0, S0.mds))/length(S0.mds)
 
-fdr.MDS.Id.200 = c(fdr.MDS.Id.200, fdr.mds)
-power.MDS.Id.200 = c(power.MDS.Id.200, power.mds)
+fdr.MDS.Id = c(fdr.MDS.Id, fdr.mds)
+power.MDS.Id = c(power.MDS.Id, power.mds)
 }
 
 
-save(fdr.MDS.Id.200, power.MDS.Id.200, file = 'results/MDS_Id_200.RData')
+save(fdr.MDS.Id, power.MDS.Id, file = paste('results/', opt$Savename, sep=''))
+cat("Save to:", paste('results/', opt$Savename, sep=''), "\n")

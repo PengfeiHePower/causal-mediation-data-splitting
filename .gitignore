@@ -2,3 +2,6 @@ data/
 log/
 results/
 sbatch/
+ds/
+mds/
+dataGeneration/

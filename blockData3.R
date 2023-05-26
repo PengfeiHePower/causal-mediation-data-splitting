@@ -69,13 +69,13 @@ library(stats)
   beta.1 = rnorm(1, 0, theta.beta1) # 1 by 1
   beta.3 = mvrnorm(1, mu.beta3, Sigma.beta3) # m by 1
   epsilon.y = rnorm(n, 0, 1) # n by 1
-  epsilon.y = matrix(epsilon.y, ncol = 1)
+  epsilon.Y = matrix(epsilon.y, ncol = 1)
   
   M = intercept.M %*% t(gamma.0) + treat %*% t(gamma.1) + pretreat %*% t(gamma.2) + epsilon.M
-  Y = intercept.Y * beta.0 + treat * beta.1 + M %*% beta.2 + pretreat %*% beta.3 + epsilon.y
+  Y = intercept.Y * beta.0 + treat * beta.1 + M %*% beta.2 + pretreat %*% beta.3 + epsilon.Y
   
   
   ## save data
-  save.image(file = 'data/dataBlock3.RData')
+  save.image(file = 'data/meanModelBlock3.RData')
 
 

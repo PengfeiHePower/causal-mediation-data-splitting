@@ -1,22 +1,42 @@
-load(file = 'data/meanModel.RData')
+##### data structure
+##### Model mediator
+# M=gamma.0+gamma.1*treat+gamma.2*pretreat+epsilon.m, n by p
+
+##### Model outcome
+# y=beta.0 + beta.1*treat + beta.2*M + beta.3*pretreat+epsilon.y
+
+# Most important variable:
+# observation: treat, pretreat
+# coefficient: gamma.0, gamma.1, gamma.2; beta.0, beta.1, beta.2, beta.3
+# error: epsilon.y
+
+#setwd('Documents/stat research/simulation')
 library(MASS)
 library(stats)
 library(glmnet)
 
-## generate different covariance matrix for Mediator error
-mu.M = rep(0, p)
-Sigma.M.Id = diag(p)
-epsilon.M.Id = mvrnorm(n, mu.M, Sigma.M.Id)
+#set arguments
+require("getopt", quietly=TRUE)
 
-response = function(epsilon.M){
-  M = intercept.M %*% t(gamma.0) + treat %*% t(gamma.1) + pretreat %*% t(gamma.2) + epsilon.M
-  Y = intercept.Y * beta.0 + treat * beta.1 + M %*% beta.2 + pretreat %*% beta.3 + epsilon.Y
-  out = list(M=M, Y=Y)
-  return(out)
-}
+spec = matrix(c(
+    "Filename", "f", 1, "character",
+    "Fdr", "q", 1, "numeric",
+    "Savename", "s", 1, "character",
+    "Repeat", "r", 1, "integer"
+), byrow=TRUE, ncol=4)
+
+opt = getopt(spec);
+cat("File loaded:", paste('data/', opt$Filename, sep=''), "\n")
+cat("Fdr level:", opt$Fdr, "\n")
+
+#load data
+load(file = paste('data/', opt$Filename, sep=''))
+
+
+## important functions
 
 f = function(u,v){
-  return(u + v)
+  return(min(u,v))
 }
 
 fdr = function(t, M){
@@ -25,29 +45,13 @@ fdr = function(t, M){
   return(up/down)
 }
 
-compR.v = c(0.9,0.8,0.7,0.6,0.5,0.4,0.3,0.2,0.1)
-
-
-
-for(i in 1:length(compR.v)){
-compR=compR.v[i]
-print(compR)
-mu.M = rep(0, p)
-row1 = rep(0, p)
-row1[1] = 1
-row1[2:p] = compR
-Sigma.M = toeplitz(row1)
-epsilon.M = mvrnorm(n, mu.M, Sigma.M)
-
-
-response.DS = response(epsilon.M)
-fdr.DS = c()
-power.DS = c()
+fdr.DS.Id = c()
+power.DS.Id = c()
 ######## DS ############################
 ## split data into two equal parts
-D = c(1:500)
+D = c(1:n)
 
-for(reps in 1:50){
+for(reps in 1:opt$Repeat){
 D1 = sample(D, size = n/2)
 D2 = setdiff(D, D1)
 
@@ -59,18 +63,18 @@ inter.1 = matrix(rep(1,n/2), ncol = 1) #intercept
 inter.full = matrix(rep(1,n), ncol = 1)
 X1 = pretreat[D1,]
 X2 = pretreat[D2,]
-M1 = response.DS$M[D1,]
-M2 = response.DS$M[D2,]
-Y1 = response.DS$Y[D1,]
-Y2 = response.DS$Y[D2,]
+M1 = M[D1,]
+M2 = M[D2,]
+Y1 = Y[D1,]
+Y2 = Y[D2,]
 
 # Phase 1: Lasso on outcome model Y
 X.full1 = cbind(inter.1, t1.m, X1, M1) #full design matrix
 p.fac1 = rep(1, dim(X.full1)[2])
 p.fac1[1:22] = 0
 
-cv.lasso.1 = cv.glmnet(X.full1, Y1, penalty.factor = p.fac1, nfolds = 10)
-coef.lasso1.min = coef(cv.lasso.1$glmnet.fit, s = cv.lasso.1$lambda.1se, exact = F)
+cv.lasso.1 = cv.glmnet(X.full1, Y1, penalty.factor = p.fac1)
+coef.lasso1.min = coef(cv.lasso.1$glmnet.fit, s = cv.lasso.1$lambda.min, exact = F)
 
 ind.lasso.raw = which(coef.lasso1.min!=0)
 # estimation of beta1 we need
@@ -82,7 +86,7 @@ p1.hat = length(ind.lasso)
 
 # Phase2: Do regression on D2 and ind.lasso for gamma and beta
 # Mediator model
-M.S1 = response.DS$M[, ind.lasso]
+M.S1 = M[, ind.lasso]
 X.M = cbind(inter.full, pretreat, treat)
 gamma.e = solve(t(X.M) %*% X.M) %*% t(X.M) %*% M.S1
 
@@ -116,7 +120,7 @@ fdr.M = c()
 for(i in Mirror.abs){
   fdr.M = c(fdr.M, fdr(i, Mirror))
 }
-cutoffs = Mirror.abs[fdr.M<=0.05]
+cutoffs = Mirror.abs[fdr.M<=opt$Fdr]
 cutoff = min(cutoffs)
 
 S1.final = ind.lasso[which(Mirror > cutoff)]#final set of selected values.
@@ -126,10 +130,9 @@ S0.final = setdiff(1:p, S1.final)
 fdr.eval = length(intersect(S0,S1.final))/max(1,length(S1.final)) # 0.0421
 power.eval = length(intersect(S0, S0.final))/length(S0.final)  # 0.85
 
-fdr.DS = c(fdr.DS, fdr.eval)
-power.DS = c(power.DS, power.eval)
+fdr.DS.Id = c(fdr.DS.Id, fdr.eval)
+power.DS.Id = c(power.DS.Id, power.eval)
+}
 
-write.csv(fdr.DS,file=paste('results/fdr/covariance/compound/DScomp',compR*10,'.csv',sep=''),row.names=F)
-write.csv(power.DS, file=paste('results/power/covariance/compound/DScomp',compR*10,'.csv',sep=''), row.names=F)
-}
-}
+save(fdr.DS.Id, power.DS.Id, file = paste('results/', opt$Savename, sep=''))
+cat("Save to:", paste('results/', opt$Savename, sep=''), "\n")

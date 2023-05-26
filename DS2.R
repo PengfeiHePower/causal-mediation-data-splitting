@@ -1,53 +1,78 @@
 ##### data structure
-# t: treatment, n by 1
-# X: pre-treatment covariates, n by m
-
 ##### Model mediator
-# m=gamma_0+gamma_1 t_i+gamma_2 x+ epsilon_m, n by p
-# gamma_0: sample from N(0, \theta_0), theta_1 fixed, p by 1
-# gamma_1: sample from N(0, \theta_1), p by 1
-# gamma_2: each column sample from N(0, Sigma.g2), p by m
-# epsilon_m: sample from (0, Sigma.em), Sigma.em have different choice starting from I, n by p
+# M=gamma.0+gamma.1*treat+gamma.2*pretreat+epsilon.m, n by p
 
 ##### Model outcome
-# y=beta_0 + beta_1 t_i + beta_2 m + beta_3 x+epsilon_y
-# first sample 50 out of 500 as S_1
-# beta_0: sample from N(0, \theta_2), 1
-# beta_1: sample from N(0, \theta_3), 1
-# beta_2: for i in S_1, sample from N(0, \delta\sqrt{p/n}), other 0, p by 1
-# beta_3: sample from N(0, Sigma.b3), m by 1
-# epsilon: sample from N(0, I), n by 1
+# y=beta.0 + beta.1*treat + beta.2*M + beta.3*pretreat+epsilon.y
 
-# Only change Sigma.em starting from identity, other parameters remain same.
+# Most important variable:
+# observation: treat, pretreat
+# coefficient: gamma.0, gamma.1, gamma.2; beta.0, beta.1, beta.2, beta.3
+# error: epsilon.y
 
-setwd('Documents/stat research/simulation')
-load(file = 'data/SimIdentity.RData')
+#setwd('Documents/stat research/simulation')
+library(MASS)
+library(stats)
+library(glmnet)
 
-# split data into two equal parts
-set.seed(2)
-D = c(1:500)
+#set arguments
+require("getopt", quietly=TRUE)
+
+spec = matrix(c(
+    "Filename", "f", 1, "character",
+    "Fdr", "q", 1, "numeric",
+    "Savename", "s", 1, "character",
+    "Repeat", "r", 1, "integer"
+), byrow=TRUE, ncol=4)
+
+opt = getopt(spec);
+cat("File loaded:", paste('data/', opt$Filename, sep=''), "\n")
+cat("Fdr level:", opt$Fdr, "\n")
+
+#load data
+load(file = paste('data/', opt$Filename, sep=''))
+
+
+## important functions
+
+f = function(u,v){
+  return(u * v)
+}
+
+fdr = function(t, M){
+  up = sum(M<(-1*t))
+  down = max(1, sum(M>t))
+  return(up/down)
+}
+
+fdr.DS.Id = c()
+power.DS.Id = c()
+######## DS ############################
+## split data into two equal parts
+D = c(1:n)
+
+for(reps in 1:opt$Repeat){
 D1 = sample(D, size = n/2)
 D2 = setdiff(D, D1)
 
-t1 = t[D1]
-t2 = t[D2]
+t1 = treat[D1]
+t2 = treat[D2]
 t1.m = matrix(t1, ncol=1)
 t2.m = matrix(t2, ncol=1)
-inter.1 = matrix(rep(1,250), ncol = 1) #intercept
-inter.full = matrix(rep(1,500), ncol = 1)
-X1 = X[D1,]
-X2 = X[D2,]
+inter.1 = matrix(rep(1,n/2), ncol = 1) #intercept
+inter.full = matrix(rep(1,n), ncol = 1)
+X1 = pretreat[D1,]
+X2 = pretreat[D2,]
 M1 = M[D1,]
 M2 = M[D2,]
 Y1 = Y[D1,]
 Y2 = Y[D2,]
 
 # Phase 1: Lasso on outcome model Y
-library(glmnet)
 X.full1 = cbind(inter.1, t1.m, X1, M1) #full design matrix
 p.fac1 = rep(1, dim(X.full1)[2])
 p.fac1[1:22] = 0
-#lasso.1 = glmnet(X.full1, Y1, penalty.factor = p.fac1, family = "gaussian", nlambda = 100, alpha = 1)
+
 cv.lasso.1 = cv.glmnet(X.full1, Y1, penalty.factor = p.fac1)
 coef.lasso1.min = coef(cv.lasso.1$glmnet.fit, s = cv.lasso.1$lambda.min, exact = F)
 
@@ -62,7 +87,7 @@ p1.hat = length(ind.lasso)
 # Phase2: Do regression on D2 and ind.lasso for gamma and beta
 # Mediator model
 M.S1 = M[, ind.lasso]
-X.M = cbind(inter.full, X, t)
+X.M = cbind(inter.full, pretreat, treat)
 gamma.e = solve(t(X.M) %*% X.M) %*% t(X.M) %*% M.S1
 
 # estimation of gamma1 we need
@@ -83,32 +108,31 @@ for(i in 1:length(gamma.e1)){
   min.2 = c(min.2, sign(gamma.e1[i] * beta2.e1[i]) * min(abs(gamma.e1[i]), abs(beta2.e1[i])))
 }
 
-f = function(u,v){
-  return(u + v)
-}
 
 Mirror = c()
 for(i in 1:length(min.1)){
   Mirror = c(Mirror, sign(min.1[i]*min.2[i])*f(abs(min.1[i]), abs(min.2[i])))
 }
 
-fdr = function(t, M){
-  up = sum(M<(-1*t))
-  down = max(1, sum(M>t))
-  return(up/down)
-}
+
 Mirror.abs = abs(Mirror)
 fdr.M = c()
 for(i in Mirror.abs){
   fdr.M = c(fdr.M, fdr(i, Mirror))
 }
-cutoffs = Mirror.abs[fdr.M<=0.05]
+cutoffs = Mirror.abs[fdr.M<=opt$Fdr]
 cutoff = min(cutoffs)
 
 S1.final = ind.lasso[which(Mirror > cutoff)]#final set of selected values.
 S0.final = setdiff(1:p, S1.final)
 
 # evaluate
-fdr.eval = length(intersect(S0,S1.final))/length(S1.final) # 0.06
-power.eval = length(intersect(S0, S0.final))/length(S0.final) #0.953
+fdr.eval = length(intersect(S0,S1.final))/max(1,length(S1.final)) # 0.0421
+power.eval = length(intersect(S0, S0.final))/length(S0.final)  # 0.85
 
+fdr.DS.Id = c(fdr.DS.Id, fdr.eval)
+power.DS.Id = c(power.DS.Id, power.eval)
+}
+
+save(fdr.DS.Id, power.DS.Id, file = paste('results/', opt$Savename, sep=''))
+cat("Save to:", paste('results/', opt$Savename, sep=''), "\n")
