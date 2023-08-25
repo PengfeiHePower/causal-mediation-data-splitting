@@ -11,11 +11,11 @@ avg.fdr.MDS.ID.4 = mean(fdr.MDS.Id.4)
 avg.fdr.MDS.ID.6 = mean(fdr.MDS.Id.6)
 avg.fdr.MDS.ID.8 = mean(fdr.MDS.Id.8)
 avg.fdr.MDS.ID.10 = mean(fdr.MDS.Id.10)
-avg.fdr.MDS.ID.20= mean(fdr.MDS.Id.20)
+avg.fdr.MDS.Id= mean(fdr.MDS.Id)
 avg.fdr.MDS.ID.50 = mean(fdr.MDS.Id.50)
 avg.fdr.MDS.ID.100 = mean(fdr.MDS.Id.100)
 avg.fdr.MDS.ID.150 = mean(fdr.MDS.Id.150)
-avg.fdr.MDS.ID.200 = mean(fdr.MDS.Id.200)
+avg.fdr.MDS.Id0 = mean(fdr.MDS.Id0)
 avg.fdr.MDS.ID.250 = mean(fdr.MDS.Id.250)
 
 avg.power.DS.ID = mean(power.DS.Id)
@@ -34,8 +34,8 @@ avg.power.MDS.ID.250 = mean(power.MDS.Id.250)
 
 
 avg.fdr.MDS = c(avg.fdr.MDS.ID.1, avg.fdr.MDS.ID.2, avg.fdr.MDS.ID.4, avg.fdr.MDS.ID.6, avg.fdr.MDS.ID.8, 
-                avg.fdr.MDS.ID.10, avg.fdr.MDS.ID.20, avg.fdr.MDS.ID.50, avg.fdr.MDS.ID.100,
-                avg.fdr.MDS.ID.150, avg.fdr.MDS.ID.200, avg.fdr.MDS.ID.250)
+                avg.fdr.MDS.ID.10, avg.fdr.MDS.Id, avg.fdr.MDS.ID.50, avg.fdr.MDS.ID.100,
+                avg.fdr.MDS.ID.150, avg.fdr.MDS.Id0, avg.fdr.MDS.ID.250)
 
 avg.power.MDS = c(avg.power.MDS.ID.1, avg.power.MDS.ID.2, avg.power.MDS.ID.4, avg.power.MDS.ID.6, avg.power.MDS.ID.8, 
                   avg.power.MDS.ID.10, avg.power.MDS.ID.20, avg.power.MDS.ID.50, avg.power.MDS.ID.100,

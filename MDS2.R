@@ -30,14 +30,16 @@ spec = matrix(c(
     "Filename", "f", 1, "character",
     "Fdr", "q", 1, "numeric",
     "Savename", "s", 1, "character",
-    "Repeat", "r", 1, "integer",
     "MdsTime", "m", 1, "integer"
 ), byrow=TRUE, ncol=4)
 
 opt = getopt(spec);
+fdr_level = opt$Fdr
+savedfile = paste('results/', opt$Savename, sep='')
+mds.times = opt$MdsTime
 cat("File loaded:", paste('data/', opt$Filename, sep=''), "\n")
-cat("Fdr level:", opt$Fdr, "\n")
-cat("Mds Time:", opt$MdsTime, "\n")
+cat("Fdr level:", fdr_level, "\n")
+cat("Mds Time:", mds.times, "\n")
 
 # load data
 load(file = paste('data/', opt$Filename, sep=''))
@@ -72,10 +74,10 @@ power.MDS.Id = c()
 
 D = c(1:n)
 
-for(reps in 1:opt$Repeat){
+for(reps in 1:50){
 med.score = rep(0, p)
 
-for(i in 1:opt$MdsTime){
+for(i in 1:mds.times){
   D1 = sample(D, size = n/2)
   D2 = setdiff(D, D1)
   
@@ -142,7 +144,7 @@ for(i in 1:opt$MdsTime){
   for(i in Mirror.abs){
     fdr.M = c(fdr.M, fdr(i, Mirror))
   }
-  cutoffs = Mirror.abs[fdr.M<=opt$Fdr]
+  cutoffs = Mirror.abs[fdr.M<=fdr_level]
   cutoff = min(cutoffs)
   
   S1.ds = ind.lasso[which(Mirror > cutoff)]
@@ -153,20 +155,22 @@ for(i in 1:opt$MdsTime){
   }
 }
 
-med.score = med.score/opt$MdsTime
+med.score = med.score/mds.times
 
 sort.med.score = sort(med.score)
-cutoff = find.cutoff(opt$Fdr, sort.med.score)
-S1.mds = which(med.score>=cutoff)
+cutoff = find.cutoff(fdr_level, sort.med.score)
+S1.mds = which(med.score>cutoff)
 S0.mds = setdiff(1:p, S1.mds)
 
-fdr.mds = length(intersect(S0,S1.mds))/max(1,length(S1.mds))
-power.mds = length(intersect(S0, S0.mds))/length(S0.mds)
+fdr.mds = length(intersect(S0,S1.mds))/length(S1.mds) #0.033
+power.mds = length(intersect(S0, S0.mds))/length(S0.mds) #0.955
 
 fdr.MDS.Id = c(fdr.MDS.Id, fdr.mds)
 power.MDS.Id = c(power.MDS.Id, power.mds)
 }
 
+cat('FDR:', mean(fdr.MDS.Id))
+cat('Power:', mean(power.MDS.Id))
 
-save(fdr.MDS.Id, power.MDS.Id, file = paste('results/', opt$Savename, sep=''))
-cat("Save to:", paste('results/', opt$Savename, sep=''), "\n")
+# save(fdr.MDS.Id, power.MDS.Id, file = savedfile)
+# cat("Save to:", savedfile, "\n")

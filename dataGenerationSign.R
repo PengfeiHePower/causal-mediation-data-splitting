@@ -56,7 +56,7 @@ opt = getopt(spec);
 cat('Signal strength:', opt$Signal,'\n')
 delta = opt$Signal
 
-Sigma.pretreat = 2 * diag(m)
+Sigma.pretreat = diag(m)
 mu.pretreat = rep(0,m)
 # design matrix
 treat = rbinom(n, 1, 0.5)
@@ -67,7 +67,7 @@ pretreat = mvrnorm(n, mu.pretreat, Sigma.pretreat) #X[1,] select a column, n by 
 theta.gamma0 = 1
 theta.gamma1 = 1
 mu.gamma2 = rep(0, m)
-Sigma.gamma2 = 3 * diag(m)
+Sigma.gamma2 = diag(m)
 
 intercept.M = matrix(rep(1, n), ncol = 1, nrow = n)
 gamma.0 = matrix(nrow = p, ncol = 1) # p by 1

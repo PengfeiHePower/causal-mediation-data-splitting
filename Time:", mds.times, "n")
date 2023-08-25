@@ -1,0 +1,165 @@
+hima2                   package:HIMA                   R Documentation
+
+_A_d_v_a_n_c_e_d _H_i_g_h-_d_i_m_e_n_s_i_o_n_a_l _M_e_d_i_a_t_i_o_n _A_n_a_l_y_s_i_s
+
+_D_e_s_c_r_i_p_t_i_o_n:
+
+     ‘hima2’ is an upgraded version of hima for estimating and testing
+     high-dimensional mediation effects.
+
+_U_s_a_g_e:
+
+     hima2(
+       formula,
+       data.pheno,
+       data.M,
+       outcome.family = c("gaussian", "binomial", "survival"),
+       mediator.family = c("gaussian", "negbin", "compositional"),
+       penalty = c("DBlasso", "MCP", "SCAD", "lasso"),
+       topN = NULL,
+       scale = TRUE,
+       verbose = FALSE
+     )
+     
+_A_r_g_u_m_e_n_t_s:
+
+ formula: an object of class ‘formula’: a symbolic description of the
+          overall effect model, i.e., ‘outcome ~ exposure +
+          covariates’, to be fitted. Make sure the "exposure" is the
+          variable of interest, which must be listed as the first
+          variable in the right hand side of the formula. independent
+          variable in the formula. The same covariates will be used in
+          screening and penalized regression.
+
+data.pheno: a data frame containing all the variables listed in the
+          right hand side of the ‘formula’. ‘hima2’ will scale
+          ‘data.pheno’.
+
+  data.M: a ‘data.frame’ or ‘matrix’ of high-dimensional mediators.
+          Rows represent samples, columns represent variables. ‘hima2’
+          will scale ‘data.M’.
+
+outcome.family: either ‘'gaussian'’ (default, for normally distributed
+          continuous outcome), ‘'binomial'’ (for binay outcome), or
+          ‘'survival'’ (for time-to-event outcome), depending on the
+          data type of outcome.
+
+mediator.family: either ‘'gaussian'’ (default, for continuous
+          mediators), ‘'negbin'’ (i.e., negative binomial, for RNA-seq
+          data as mediators), or ‘'compositional'’ (for microbiome data
+          as mediators), depending on the data type of high-dimensional
+          mediators (‘data.M’).
+
+ penalty: the penalty to be applied to the model. Either ‘'DBlasso'’
+          (De-biased LASSO, default), ‘'MCP'’, ‘'SCAD'’, or ‘'lasso'’.
+
+    topN: an integer specifying the number of top markers from sure
+          independent screening.  Default = ‘NULL’. If ‘NULL’, ‘topN’
+          will be either ‘ceiling(n/log(n))’ if ‘outcome.family =
+          'gaussian'’, or ‘ceiling(n/(2*log(n)))’ if ‘outcome.family =
+          'binomial'’, where ‘n’ is the sample size. If the sample size
+          is greater than topN (pre-specified or calculated), all
+          mediators will be included in the test (i.e. low-dimensional
+          scenario).
+
+   scale: logical. Should the function scale the data? Default =
+          ‘TRUE’.
+
+ verbose: logical. Should the function be verbose and shows the
+          progression? Default = ‘FALSE’.
+
+_V_a_l_u_e:
+
+     A data.frame containing mediation testing results of selected
+     mediators.
+
+_R_e_f_e_r_e_n_c_e_s:
+
+     Zhang H, Zheng Y, Zhang Z, Gao T, Joyce B, Yoon G, Zhang W,
+     Schwartz J, Just A, Colicino E, Vokonas P, Zhao L, Lv J,
+     Baccarelli A, Hou L, Liu L. Estimating and Testing
+     High-dimensional Mediation Effects in Epigenetic Studies.
+     Bioinformatics. 2016. DOI: 10.1093/bioinformatics/btw351. PMID:
+     27357171. PMCID: PMC5048064
+
+     Perera C, Zhang H, Zheng Y, Hou L, Qu A, Zheng C, Xie K, Liu L.
+     HIMA2: high-dimensional mediation analysis and its application in
+     epigenome-wide DNA methylation data.  BMC Bioinformatics. 2022.
+     DOI: 10.1186/s12859-022-04748-1. PMID: 35879655. PMCID: PMC9310002
+
+     Zhang H, Zheng Y, Hou L, Zheng C, Liu L. Mediation Analysis for
+     Survival Data with High-Dimensional Mediators.  Bioinformatics.
+     2021. DOI: 10.1093/bioinformatics/btab564. PMID: 34343267. PMCID:
+     PMC8570823
+
+     Zhang H, Chen J, Feng Y, Wang C, Li H, Liu L. Mediation effect
+     selection in high-dimensional and compositional microbiome data.
+     Stat Med. 2021. DOI: 10.1002/sim.8808. PMID: 33205470; PMCID:
+     PMC7855955.
+
+     Zhang H, Chen J, Li Z, Liu L. Testing for mediation effect with
+     application to human microbiome data.  Stat Biosci. 2021. DOI:
+     10.1007/s12561-019-09253-3. PMID: 34093887; PMCID: PMC8177450.
+
+_E_x_a_m_p_l_e_s:
+
+     ## Not run:
+     
+     # Example 1 (continous outcome): 
+     data(Example1)
+     head(Example1$PhenoData)
+     
+     e1 <- hima2(Outcome ~ Treatment + Sex + Age, 
+           data.pheno = Example1$PhenoData, 
+           data.M = Example1$Mediator,
+           outcome.family = "gaussian",
+           mediator.family = "gaussian",
+           penalty = "MCP",
+           scale = FALSE)
+     e1
+     attributes(e1)$variable.labels
+     
+     # Example 2 (binary outcome): 
+     data(Example2)
+     head(Example2$PhenoData)
+     
+     e2 <- hima2(Disease ~ Treatment + Sex + Age, 
+           data.pheno = Example2$PhenoData, 
+           data.M = Example2$Mediator,
+           outcome.family = "binomial",
+           mediator.family = "gaussian",
+           penalty = "MCP",
+           scale = FALSE)
+     e2
+     attributes(e2)$variable.labels
+     
+     # Example 3 (time-to-event outcome): 
+     data(Example3)
+     head(Example3$PhenoData)
+     
+     e3 <- hima2(Surv(Status, Time) ~ Treatment + Sex + Age, 
+           data.pheno = Example3$PhenoData, 
+           data.M = Example3$Mediator,
+           outcome.family = "survival",
+           mediator.family = "gaussian",
+           penalty = "DBlasso",
+           scale = FALSE)
+     e3
+     attributes(e3)$variable.labels
+     
+     # Example 4 (compositional data as mediator, e.g., microbiome): 
+     data(Example4)
+     head(Example4$PhenoData)
+     
+     e4 <- hima2(Outcome ~ Treatment + Sex + Age, 
+           data.pheno = Example4$PhenoData, 
+           data.M = Example4$Mediator,
+           outcome.family = "gaussian",
+           mediator.family = "compositional",
+           penalty = "DBlasso",
+           scale = FALSE)
+     e4
+     attributes(e4)$variable.labels
+     ## End(Not run)
+     
+

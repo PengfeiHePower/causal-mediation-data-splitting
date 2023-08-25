@@ -21,13 +21,14 @@ require("getopt", quietly=TRUE)
 spec = matrix(c(
     "Filename", "f", 1, "character",
     "Fdr", "q", 1, "numeric",
-    "Savename", "s", 1, "character",
-    "Repeat", "r", 1, "integer"
+    "Savename", "s", 1, "character"
 ), byrow=TRUE, ncol=4)
 
 opt = getopt(spec);
+savedfile = paste('results/', opt$Savename, sep='')
 cat("File loaded:", paste('data/', opt$Filename, sep=''), "\n")
 cat("Fdr level:", opt$Fdr, "\n")
+cat("Save location:", savedfile, "\n")
 
 #load data
 load(file = paste('data/', opt$Filename, sep=''))
@@ -51,7 +52,7 @@ power.DS.Id = c()
 ## split data into two equal parts
 D = c(1:n)
 
-for(reps in 1:opt$Repeat){
+for(reps in 1:50){
 D1 = sample(D, size = n/2)
 D2 = setdiff(D, D1)
 
@@ -134,5 +135,9 @@ fdr.DS.Id = c(fdr.DS.Id, fdr.eval)
 power.DS.Id = c(power.DS.Id, power.eval)
 }
 
-save(fdr.DS.Id, power.DS.Id, file = paste('results/', opt$Savename, sep=''))
-cat("Save to:", paste('results/', opt$Savename, sep=''), "\n")
+cat('FDR:', mean(fdr.DS.Id))
+cat('Power:', mean(power.DS.Id))
+
+# write.csv(fdr.DS.Id, file=”x.csv”,row.names=F)
+# save(fdr.DS.Id, power.DS.Id, file = savedfile)
+# cat("Save to:", savedfile, "\n")
